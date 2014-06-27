@@ -1,6 +1,6 @@
 namespace SelectBuilder
 {
-    public enum Operators
+    public enum Operator
     {
         IsEqualTo,
         Contains,

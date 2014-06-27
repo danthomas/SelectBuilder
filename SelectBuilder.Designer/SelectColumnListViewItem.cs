@@ -19,7 +19,7 @@ namespace SelectBuilder.Designer
         public void RefreshText()
         {
             SubItems[1].Text = SelectColumn.IsVisible ? "Yes" : "No";
-            SubItems[2].Text = SelectColumn.SortOrder == 0 ? "" : String.Format("{0} {1}", Math.Abs(SelectColumn.SortOrder), SelectColumn.SortOrder > 0 ? "ASC" : "DESC");
+            SubItems[2].Text = SelectColumn.OrderByIndex == 0 ? "" : String.Format("{0} {1}", Math.Abs(SelectColumn.OrderByIndex), SelectColumn.OrderByIndex > 0 ? "ASC" : "DESC");
             Checked = SelectColumn.IsVisible;
         }
     }

@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
-using System.Drawing;
 using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SelectBuilder.Designer
@@ -29,7 +24,7 @@ namespace SelectBuilder.Designer
 
         private void LoadSelectStatements()
         {
-            Builder builder = new Builder(new DataSource());
+            Builder builder = new Builder(new DataSource("ConnectionString"));
 
             builder.LoadDefinitions();
 
@@ -37,7 +32,7 @@ namespace SelectBuilder.Designer
             SelectStatement warrantsByAccount = builder.CreateSelect("inventory.Warrant", "w")
                  .Select("AccountId")
                  .Select("WarrantId", alias: "Warrants", aggregate: Aggregates.Count)
-                 .Where("AccountId", Operators.IsNotNull, null, null);
+                 .Where("AccountId", Operator.IsNotNull, null, null);
 
             selectStatements.Items.Add(new SelectStatementListViewItem("Accounts",
                 builder.CreateSelect("companies.Account", "a")
@@ -45,7 +40,7 @@ namespace SelectBuilder.Designer
                 .Join("a.CompanyId", "c")
                 .Join("a.AccountId", warrantsByAccount, "x", "AccountId")
 
-                .Select("a.AccountId", columnType: ColumnType.None)
+                .Select("a.AccountId", columnType: ColumnType.Identifier)
                 .Select("a.AccountCode")
                 .Select("a.AccountName")
                 .Select("at.AccountTypeName")
@@ -54,13 +49,19 @@ namespace SelectBuilder.Designer
                 .Select("a.IsActive")
                 .Select("x.Warrants")));
 
+            SelectStatement companyTypes = builder.CreateSelect("companies.CompanyType", "ct")
+                .Select("CompanyTypeId")
+                .Select("CompanyTypeCode")
+                .Select("CompanyTypeName");
+
             selectStatements.Items.Add(new SelectStatementListViewItem("Companies",
                 builder.CreateSelect("companies.Company", "c")
                 .Join("c.CompanyTypeId", "ct")
 
-                .Select("c.CompanyId", columnType: ColumnType.None)
+                .Select("c.CompanyId", columnType: ColumnType.Identifier)
                 .Select("c.CompanyCode")
                 .Select("c.CompanyName")
+                .Select("c.CompanyTypeId", columnType: ColumnType.Where, optionsSelectStatement: companyTypes)
                 .Select("ct.CompanyTypeName")
                 .Select("c.Address")
                 .Select("c.PostCode")
@@ -71,7 +72,7 @@ namespace SelectBuilder.Designer
             selectStatements.Items.Add(new SelectStatementListViewItem("CompanyType",
                 builder.CreateSelect("companies.CompanyType", "ct")
 
-                .Select("CompanyTypeId", columnType: ColumnType.None)
+                .Select("CompanyTypeId", columnType: ColumnType.Identifier)
                 .Select("CompanyTypeCode")
                 .Select("CompanyTypeName")
                 .Select("CanSeeAllData")));
@@ -79,7 +80,7 @@ namespace SelectBuilder.Designer
             selectStatements.Items.Add(new SelectStatementListViewItem("Configs",
                 builder.CreateSelect("core.Config", "c")
 
-                .Select("ConfigId", columnType: ColumnType.None)
+                .Select("ConfigId", columnType: ColumnType.Identifier)
                 .Select("ConfigName")
                 .Select("ConfigValue")
                 .Select("IsActive")));
@@ -89,7 +90,7 @@ namespace SelectBuilder.Designer
                 .Join("c.ExchangeCompanyId", "ec")
                 .Join("c.ProductId", "p")
 
-                .Select("c.ContractId", columnType: ColumnType.None)
+                .Select("c.ContractId", columnType: ColumnType.Identifier)
                 .Select("c.ContractCode")
                 .Select("c.ContractName")
                 .Select("ec.CompanyName")
@@ -99,7 +100,7 @@ namespace SelectBuilder.Designer
             selectStatements.Items.Add(new SelectStatementListViewItem("Locations",
                 builder.CreateSelect("core.Location", "l")
 
-                .Select("LocationId", columnType: ColumnType.None)
+                .Select("LocationId", columnType: ColumnType.Identifier)
                 .Select("LocationCode")
                 .Select("LocationName")
                 .Select("IsActive")));
@@ -109,7 +110,7 @@ namespace SelectBuilder.Designer
                 .Join("p.ProductTypeId", "pt")
                 .Join("p.UnitMeasureId", "um")
 
-                .Select("p.ProductId", columnType: ColumnType.None)
+                .Select("p.ProductId", columnType: ColumnType.Identifier)
                 .Select("p.ProductCode")
                 .Select("p.ProductName")
                 .Select("pt.ProductTypeName")
@@ -120,14 +121,14 @@ namespace SelectBuilder.Designer
             selectStatements.Items.Add(new SelectStatementListViewItem("ProductTypes",
                 builder.CreateSelect("core.ProductType", "pt")
 
-                .Select("ProductTypeId", columnType: ColumnType.None)
+                .Select("ProductTypeId", columnType: ColumnType.Identifier)
                 .Select("ProductTypeCode")
                 .Select("ProductTypeName")));
 
             selectStatements.Items.Add(new SelectStatementListViewItem("UnitMeasures",
                 builder.CreateSelect("core.UnitMeasure", "um")
 
-                .Select("UnitMeasureId", columnType: ColumnType.None)
+                .Select("UnitMeasureId", columnType: ColumnType.Identifier)
                 .Select("UnitMeasureCode")
                 .Select("UnitMeasureName")
                 .Select("ConversionToBaseMeasure")
@@ -226,7 +227,7 @@ namespace SelectBuilder.Designer
 
             SelectStatement pendingWarrants = builder.CreateSelect("inventory.RequestWarrant", "rw", distinct: true)
                     .Select("rw.WarrantId")
-                    .Where("rw.IsAccepted", Operators.IsNull, null, null);
+                    .Where("rw.IsAccepted", Operator.IsNull, null, null);
 
             selectStatements.Items.Add(new SelectStatementListViewItem("Warrants",
                 builder.CreateSelect("inventory.Warrant", "w")
@@ -265,7 +266,7 @@ namespace SelectBuilder.Designer
             if (_selectStatement != null)
             {
                 pageSize.Text = _selectStatement.PageSize > 0 ? _selectStatement.PageSize.ToString() : "";
-                pageNo.Text = _selectStatement.PageNo > 0 ? _selectStatement.PageNo.ToString() : "";
+                pageNo.Text = _selectStatement.PageIndex > 0 ? _selectStatement.PageIndex.ToString() : "";
             }
 
             RefreshSelects();
@@ -329,12 +330,12 @@ namespace SelectBuilder.Designer
 
                 if (selectStatements.SelectedItems[0].Text == "Accounts" && userDetails.CompanyTypeCode != "Exc")
                 {
-                    _selectStatement.Where("a.CompanyId", Operators.IsEqualTo, userDetails.CompanyId.ToString(), null);
+                    _selectStatement.Where("a.CompanyId", Operator.IsEqualTo, userDetails.CompanyId.ToString(), null);
                     whereColumn = _selectStatement.WhereColumns.Last();
                 }
                 else if (selectStatements.SelectedItems[0].Text == "RequestWarrants" && requestId.Text != "")
                 {
-                    _selectStatement.Where("r.RequestId", Operators.IsEqualTo, requestId.Text, null);
+                    _selectStatement.Where("r.RequestId", Operator.IsEqualTo, requestId.Text, null);
                     whereColumn = _selectStatement.WhereColumns.Last();
                 }
 
@@ -347,6 +348,12 @@ namespace SelectBuilder.Designer
                     data.AutoGenerateColumns = true;
                     data.DataSource = null;
                     data.DataSource = dataSet.Tables[0];
+
+                    if (isPaged.Checked)
+                    {
+                        pageNo.Text = (dataSet.Tables[1].Rows[0].Field<int>("PageIndex") + 1).ToString();
+                        noRows.Text = dataSet.Tables[1].Rows[0].Field<int>("Total").ToString();
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -425,7 +432,7 @@ where UserName = '{0}'", userName.Text), connection))
 
             if (_selectStatement != null)
             {
-                foreach (SelectColumn selectColumn in _selectStatement.SelectColumns)
+                foreach (SelectColumn selectColumn in _selectStatement.SelectColumns.Where(item => item.IsSelect))
                 {
                     selects.Items.Add(new SelectColumnListViewItem(selectColumn.Alias, selectColumn));
                 }
@@ -492,7 +499,7 @@ where UserName = '{0}'", userName.Text), connection))
         {
             if (_selectStatement != null)
             {
-                _selectStatement.PageNo = pageNo.Text == "" ? 0 : Int32.Parse(pageNo.Text);
+                _selectStatement.PageIndex = pageNo.Text == "" ? 0 : Int32.Parse(pageNo.Text) -1 ;
             }
         }
 

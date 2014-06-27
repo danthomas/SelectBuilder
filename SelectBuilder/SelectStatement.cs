@@ -17,7 +17,7 @@ namespace SelectBuilder
             PageSize = pageSize;
             Distinct = distinct;
             IsPaged = isPaged;
-            PageNo = 1;
+            PageIndex = 1;
             _builder = builder;
 
             ObjectDef objectDef = builder.ObjectDefs.Single(item => item.FullName == @object);
@@ -38,10 +38,10 @@ namespace SelectBuilder
         public int PageSize { get; set; }
 
         public bool Distinct { get; set; }
-        
+
         public bool IsPaged { get; set; }
 
-        public int PageNo { get; set; }
+        public int PageIndex { get; set; }
 
         public SelectStatement Join(string foreignKeyColumn, string alias)
         {
@@ -116,7 +116,7 @@ namespace SelectBuilder
             return this;
         }
 
-        public SelectStatement Select(string column, string alias = null, ColumnType columnType = ColumnType.All, bool isVisible = true, int sortOrder = 0, Aggregates aggregate = Aggregates.None, string isNull = null)
+        public SelectStatement Select(string column, string alias = null, ColumnType columnType = ColumnType.SelectWhereOrderBy, bool isVisible = true, int sortOrder = 0, Aggregates aggregate = Aggregates.None, string isNull = null, SelectStatement optionsSelectStatement = null)
         {
             GetJoinAndColumnDef(column, (join, columnDef) =>
             {
@@ -143,7 +143,9 @@ namespace SelectBuilder
                     aggregateColumnDef = new ColumnDef(null, alias, type, 0, true, false, null);
                 }
 
-                SelectColumn selectColumn = new SelectColumn(@join, columnDef, alias, columnType, null, isVisible, sortOrder, aggregate, aggregateColumnDef, isNull);
+                isVisible = isVisible && ((columnType & ColumnType.Identifier) == ColumnType.Identifier || (columnType & ColumnType.Select) == ColumnType.Select);
+
+                SelectColumn selectColumn = new SelectColumn(@join, columnDef, alias, columnType, null, isVisible, sortOrder, aggregate, aggregateColumnDef, isNull, optionsSelectStatement: optionsSelectStatement);
 
                 SelectColumns.Add(selectColumn);
             });
@@ -151,7 +153,7 @@ namespace SelectBuilder
             return this;
         }
 
-        public SelectStatement SelectCustom(string statement, string type, string alias, ColumnType columnType = ColumnType.All, string[] dependentOnAliases = null, bool isVisible = true, int sortOrder = 0)
+        public SelectStatement SelectCustom(string statement, string type, string alias, ColumnType columnType = ColumnType.SelectWhereOrderBy, string[] dependentOnAliases = null, bool isVisible = true, int sortOrder = 0)
         {
             ColumnDef columnDef = new ColumnDef(null, alias, type, 0, false, false, null);
 
@@ -215,7 +217,7 @@ namespace SelectBuilder
             action(join, columnDef);
         }
 
-        public SelectStatement Where(string column, Operators @operator, string value1, string value2)
+        public SelectStatement Where(string column, Operator @operator, string value1, string value2)
         {
             GetJoinAndColumnDef(column, (join, columnDef) =>
             {
@@ -227,7 +229,7 @@ namespace SelectBuilder
             return this;
         }
 
-        public SelectStatement Where(SelectColumn selectColumn, Operators @operator, string value1, string value2)
+        public SelectStatement Where(SelectColumn selectColumn, Operator @operator, string value1, string value2)
         {
             WhereColumn whereColumn = new WhereColumn(selectColumn.Join, selectColumn.ColumnDef, selectColumn.Statement, @operator, value1, value2);
 
@@ -245,6 +247,29 @@ namespace SelectBuilder
                 StringBuilder stringBuilder = new StringBuilder();
 
                 stringBuilder.AppendLine();
+
+                if (IsPaged)
+                {
+                    stringBuilder.Append(@"DECLARE @Total INT, @PageIndex INT = ");
+                    stringBuilder.Append(PageIndex);
+                    stringBuilder.Append(@", @PageSize INT = ");
+                    stringBuilder.Append(PageSize);
+                    stringBuilder.Append(@"
+SELECT      @Total = COUNT(*)");
+
+                    stringBuilder.AppendLine("");
+                    AppendFromAndJoins(stringBuilder);
+                    stringBuilder.AppendLine("");
+                    stringBuilder.Append(@"IF @PageIndex < 0
+BEGIN
+	SET @PageIndex = 0
+END
+ELSE IF @PageIndex * @PageSize > @Total
+BEGIN
+	SET @PageIndex = @Total / @PageSize
+END
+");
+                }
 
                 if (Distinct)
                 {
@@ -330,66 +355,7 @@ namespace SelectBuilder
 
                 }
 
-                if (IsPaged)
-                {
-                    stringBuilder.AppendLine();
-                    stringBuilder.Append("          , COUNT(*) OVER(PARTITION BY '') TotalRecords");
-                }
-
-                first = true;
-
-                foreach (Join join in GetRequiredJoins())
-                {
-                    if (first)
-                    {
-                        stringBuilder.AppendLine();
-                        stringBuilder.Append("FROM        ");
-
-                        stringBuilder.Append(join.ObjectDef.FullName);
-                        stringBuilder.Append(" ");
-                        stringBuilder.Append(join.Alias.MakeSafe());
-
-                        first = false;
-                    }
-                    else
-                    {
-                        stringBuilder.AppendLine();
-
-                        if (join.SelectStatement != null)
-                        {
-                            //ToDo : don't always need left join
-                            stringBuilder.Append("LEFT JOIN   (");
-                            stringBuilder.Append("            ");
-                            stringBuilder.Append(join.SelectStatement.Statement.Replace(Environment.NewLine, Environment.NewLine + "            "));
-                            stringBuilder.AppendLine();
-                            stringBuilder.Append("            )");
-                        }
-                        else
-                        {
-                            if (join.ParentColumnDef.IsNullable)
-                            {
-                                stringBuilder.Append("LEFT JOIN   ");
-                                stringBuilder.Append(join.ObjectDef.FullName);
-                            }
-                            else
-                            {
-                                stringBuilder.Append("JOIN        ");
-                                stringBuilder.Append(join.ObjectDef.FullName);
-                            }
-                        }
-
-                        stringBuilder.Append(" ");
-                        stringBuilder.Append(join.Alias.MakeSafe());
-                        stringBuilder.Append(" ON ");
-                        stringBuilder.Append(join.ParentJoin.Alias.MakeSafe());
-                        stringBuilder.Append(".");
-                        stringBuilder.Append(join.ParentColumnDef.Name.MakeSafe());
-                        stringBuilder.Append(" = ");
-                        stringBuilder.Append(join.Alias.MakeSafe());
-                        stringBuilder.Append(".");
-                        stringBuilder.Append(join.ColumnDef.Name.MakeSafe());
-                    }
-                }
+                AppendFromAndJoins(stringBuilder);
 
                 first = true;
 
@@ -415,50 +381,50 @@ namespace SelectBuilder
 
                     switch (whereColumn.Operator)
                     {
-                        case Operators.IsEqualTo:
+                        case Operator.IsEqualTo:
                             stringBuilder.Append("= @p");
                             stringBuilder.Append(parameterId);
                             break;
-                        case Operators.Contains:
+                        case Operator.Contains:
                             stringBuilder.Append("LIKE '%' + @p");
                             stringBuilder.Append(parameterId);
                             stringBuilder.Append(" + '%'");
                             break;
-                        case Operators.StartsWith:
+                        case Operator.StartsWith:
                             stringBuilder.Append("LIKE @p");
                             stringBuilder.Append(parameterId);
                             stringBuilder.Append(" + '%'");
                             break;
-                        case Operators.EndsWidth:
+                        case Operator.EndsWidth:
                             stringBuilder.Append("LIKE '%' + @p");
                             stringBuilder.Append(parameterId);
                             break;
-                        case Operators.IsLessThan:
+                        case Operator.IsLessThan:
                             stringBuilder.Append("< @p");
                             stringBuilder.Append(parameterId);
                             break;
-                        case Operators.IsMoreThan:
+                        case Operator.IsMoreThan:
                             stringBuilder.Append("> @p");
                             stringBuilder.Append(parameterId);
                             break;
-                        case Operators.IsLessThanOrEqualTo:
+                        case Operator.IsLessThanOrEqualTo:
                             stringBuilder.Append("<= @p");
                             stringBuilder.Append(parameterId);
                             break;
-                        case Operators.IsMoreThanOrEqualTo:
+                        case Operator.IsMoreThanOrEqualTo:
                             stringBuilder.Append(">= @p");
                             stringBuilder.Append(parameterId);
                             break;
-                        case Operators.IsTrue:
+                        case Operator.IsTrue:
                             stringBuilder.Append("= 1");
                             break;
-                        case Operators.IsFalse:
+                        case Operator.IsFalse:
                             stringBuilder.Append("= 0");
                             break;
-                        case Operators.IsNull:
+                        case Operator.IsNull:
                             stringBuilder.Append("IS NULL");
                             break;
-                        case Operators.IsNotNull:
+                        case Operator.IsNotNull:
                             stringBuilder.Append("IS NOT NULL");
                             break;
                     }
@@ -492,11 +458,11 @@ namespace SelectBuilder
                 first = true;
 
                 if (SelectColumns
-                    .Any(item => item.SortOrder != 0))
+                    .Any(item => item.OrderByIndex != 0))
                 {
                     foreach (SelectColumn selectColumn in SelectColumns
-                        .Where(item => item.SortOrder != 0)
-                        .OrderBy(item => Math.Abs(item.SortOrder)))
+                        .Where(item => item.OrderByIndex != 0)
+                        .OrderBy(item => Math.Abs(item.OrderByIndex)))
                     {
 
                         stringBuilder.AppendLine();
@@ -514,7 +480,7 @@ namespace SelectBuilder
                             stringBuilder.Append(selectColumn.ColumnDef.Name.MakeSafe());
                         }
 
-                        if (selectColumn.SortOrder < 0)
+                        if (selectColumn.OrderByIndex < 0)
                         {
                             stringBuilder.Append(" DESC");
                         }
@@ -530,22 +496,79 @@ namespace SelectBuilder
                     stringBuilder.Append(SelectColumns[0].Join.Alias.MakeSafe());
                     stringBuilder.Append(".");
                     stringBuilder.Append(SelectColumns[0].ColumnDef.Name.MakeSafe());
+
                 }
 
                 if (IsPaged)
                 {
                     stringBuilder.AppendLine();
-                    stringBuilder.Append("OFFSET ");
-                    stringBuilder.Append(PageSize * (PageNo - 1));
-                    stringBuilder.Append(" ROWS FETCH NEXT ");
-                    stringBuilder.Append(PageSize);
-                    stringBuilder.Append(" ROWS ONLY");
+                    stringBuilder.AppendLine("OFFSET @PageIndex * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY");
+
+                    stringBuilder.AppendLine("");
+                    stringBuilder.AppendLine(@"SELECT @Total Total, @PageIndex PageIndex, @PageSize PageSize");
                 }
 
                 return stringBuilder.ToString();
             }
         }
 
+        private void AppendFromAndJoins(StringBuilder stringBuilder)
+        {
+            bool first = true;
+
+            foreach (Join join in GetRequiredJoins())
+            {
+                if (first)
+                {
+                    stringBuilder.AppendLine();
+                    stringBuilder.Append("FROM        ");
+
+                    stringBuilder.Append(@join.ObjectDef.FullName);
+                    stringBuilder.Append(" ");
+                    stringBuilder.Append(@join.Alias.MakeSafe());
+
+                    first = false;
+                }
+                else
+                {
+                    stringBuilder.AppendLine();
+
+                    if (@join.SelectStatement != null)
+                    {
+                        //ToDo : don't always need left join
+                        stringBuilder.Append("LEFT JOIN   (");
+                        stringBuilder.Append("            ");
+                        stringBuilder.Append(@join.SelectStatement.Statement.Replace(Environment.NewLine, Environment.NewLine + "            "));
+                        stringBuilder.AppendLine();
+                        stringBuilder.Append("            )");
+                    }
+                    else
+                    {
+                        if (@join.ParentColumnDef.IsNullable)
+                        {
+                            stringBuilder.Append("LEFT JOIN   ");
+                            stringBuilder.Append(@join.ObjectDef.FullName);
+                        }
+                        else
+                        {
+                            stringBuilder.Append("JOIN        ");
+                            stringBuilder.Append(@join.ObjectDef.FullName);
+                        }
+                    }
+
+                    stringBuilder.Append(" ");
+                    stringBuilder.Append(@join.Alias.MakeSafe());
+                    stringBuilder.Append(" ON ");
+                    stringBuilder.Append(@join.ParentJoin.Alias.MakeSafe());
+                    stringBuilder.Append(".");
+                    stringBuilder.Append(@join.ParentColumnDef.Name.MakeSafe());
+                    stringBuilder.Append(" = ");
+                    stringBuilder.Append(@join.Alias.MakeSafe());
+                    stringBuilder.Append(".");
+                    stringBuilder.Append(@join.ColumnDef.Name.MakeSafe());
+                }
+            }
+        }
 
 
         private string GetSqlValue(string type, string value)
@@ -573,7 +596,7 @@ namespace SelectBuilder
             //are any of the select query columns for this join Visible or Ordered
             bool selectColumns = SelectColumns
                 .Any(item => (item.Join == join || (item.DependentOnAliases != null && item.DependentOnAliases.Contains(join.Alias)))
-                    && (item.IsVisible || item.SortOrder != 0));
+                    && (item.IsVisible || item.OrderByIndex != 0));
 
             bool whereColumns = WhereColumns.Any(item => item.Join == join);
 
@@ -590,20 +613,20 @@ namespace SelectBuilder
         {
             SelectColumn selectColumn = SelectColumns.Single(item => item.Alias == alias);
 
-            if (Math.Abs(selectColumn.SortOrder) == 1)
+            if (Math.Abs(selectColumn.OrderByIndex) == 1)
             {
-                selectColumn.SortOrder = -selectColumn.SortOrder;
+                selectColumn.OrderByIndex = -selectColumn.OrderByIndex;
             }
             else
             {
-                selectColumn.SortOrder = 1;
+                selectColumn.OrderByIndex = 1;
 
                 int so = 2;
                 foreach (SelectColumn sc in SelectColumns
-                    .Where(item => item.Alias != alias && item.SortOrder != 0)
-                    .OrderBy(item => Math.Abs(item.SortOrder)))
+                    .Where(item => item.Alias != alias && item.OrderByIndex != 0)
+                    .OrderBy(item => Math.Abs(item.OrderByIndex)))
                 {
-                    sc.SortOrder = so++ * (sc.SortOrder > 0 ? 1 : -1);
+                    sc.OrderByIndex = so++ * (sc.OrderByIndex > 0 ? 1 : -1);
                 }
             }
 
@@ -614,10 +637,10 @@ namespace SelectBuilder
         {
             int so = 1;
             foreach (SelectColumn sc in SelectColumns
-                .Where(item => item.SortOrder != 0)
-                .OrderBy(item => Math.Abs(item.SortOrder)))
+                .Where(item => item.OrderByIndex != 0)
+                .OrderBy(item => Math.Abs(item.OrderByIndex)))
             {
-                sc.SortOrder = so++ * (sc.SortOrder > 0 ? 1 : -1);
+                sc.OrderByIndex = so++ * (sc.OrderByIndex > 0 ? 1 : -1);
             }
         }
 
@@ -670,14 +693,15 @@ namespace SelectBuilder
         {
             switch (whereColumn.Operator)
             {
-                case Operators.IsFalse:
-                case Operators.IsTrue:
-                case Operators.IsNull:
-                case Operators.IsNotNull:
+                case Operator.IsFalse:
+                case Operator.IsTrue:
+                case Operator.IsNull:
+                case Operator.IsNotNull:
                     return false;
             }
 
             return true;
         }
     }
+
 }

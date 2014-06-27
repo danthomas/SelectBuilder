@@ -11,7 +11,7 @@ namespace SelectBuilder.Tests
             SelectStatement selectStatement = CreateBuilder().CreateSelect("inventory.Warrant", "w")
                 .Select("AccountId")
                 .Select("WarrantId", "NoWarrants", aggregate: Aggregates.Count)
-                .Where("AccountId", Operators.IsNotNull, null, null);
+                .Where("AccountId", Operator.IsNotNull, null, null);
 
             Assert.AreEqual(@"
 SELECT      w.AccountId
@@ -29,13 +29,13 @@ GROUP BY    w.AccountId", selectStatement.Statement);
             SelectStatement sub = builder.CreateSelect("inventory.Warrant", "w")
                 .Select("AccountId")
                 .Select("WarrantId", "NoWarrants", aggregate: Aggregates.Count)
-                .Where("AccountId", Operators.IsNotNull, null, null);
+                .Where("AccountId", Operator.IsNotNull, null, null);
 
             SelectStatement selectStatement = builder.CreateSelect("companies.Account", "a", isPaged: true)
                 .Join("a.AccountTypeCode", "at")
                 .Join("a.CompanyId", "c")
                 .Join("a.AccountId", sub, "x", "AccountId")
-                .Select("a.AccountId", columnType: ColumnType.None)
+                .Select("a.AccountId", columnType: ColumnType.Identifier)
                 .Select("a.AccountCode")
                 .Select("a.AccountName")
                 .Select("at.AccountTypeName")
@@ -199,7 +199,7 @@ JOIN        inventory.Warrant w ON rw.WarrantId = w.WarrantId", selectStatement.
                 .Select("c.ConfigId")
                 .Select("c.ConfigName")
                 .Select("c.ConfigValue")
-                .Where("c.ConfigName", Operators.StartsWith, "X", null);
+                .Where("c.ConfigName", Operator.StartsWith, "X", null);
 
             Assert.AreEqual(@"
 SELECT      c.ConfigId
@@ -217,7 +217,7 @@ WHERE       c.ConfigName LIKE @p1 + '%'", selectStatement.Statement);
                 .Select("c.ConfigName")
                 .Select("c.ConfigValue")
                 .Select("c.IsActive")
-                .Where("c.IsActive", Operators.IsTrue, null, null);
+                .Where("c.IsActive", Operator.IsTrue, null, null);
 
             Assert.AreEqual(@"
 SELECT      c.ConfigId
@@ -235,8 +235,8 @@ WHERE       c.IsActive = 1", selectStatement.Statement);
                 .Select("c.ConfigId")
                 .Select("c.ConfigName")
                 .Select("c.ConfigValue")
-                .Where("c.ConfigName", Operators.StartsWith, "X", null)
-                .Where("c.ConfigValue", Operators.Contains, "Y", null);
+                .Where("c.ConfigName", Operator.StartsWith, "X", null)
+                .Where("c.ConfigValue", Operator.Contains, "Y", null);
 
             Assert.AreEqual(@"
 SELECT      c.ConfigId
@@ -265,7 +265,7 @@ AND         c.ConfigValue LIKE '%' + @p2 + '%'", selectStatement.Statement);
                 .Select("RequestId")
                 .Select("WarrantNumber")
 
-                .Where("ProductTypeCode", Operators.Contains, "a", null);
+                .Where("ProductTypeCode", Operator.Contains, "a", null);
 
             Assert.AreEqual(@"
 SELECT      rw.RequestWarrantId

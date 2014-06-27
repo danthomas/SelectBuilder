@@ -54,6 +54,7 @@
             this.statement = new System.Windows.Forms.RichTextBox();
             this.data = new System.Windows.Forms.DataGridView();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.isPaged = new System.Windows.Forms.CheckBox();
             this.pageNo = new System.Windows.Forms.TextBox();
             this.label4 = new System.Windows.Forms.Label();
             this.requestId = new System.Windows.Forms.TextBox();
@@ -62,7 +63,7 @@
             this.label2 = new System.Windows.Forms.Label();
             this.pageSize = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
-            this.isPaged = new System.Windows.Forms.CheckBox();
+            this.noRows = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -308,6 +309,7 @@
             // 
             // panel2
             // 
+            this.panel2.Controls.Add(this.noRows);
             this.panel2.Controls.Add(this.isPaged);
             this.panel2.Controls.Add(this.pageNo);
             this.panel2.Controls.Add(this.label4);
@@ -322,6 +324,18 @@
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(1154, 33);
             this.panel2.TabIndex = 2;
+            // 
+            // isPaged
+            // 
+            this.isPaged.AutoSize = true;
+            this.isPaged.Checked = true;
+            this.isPaged.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.isPaged.Location = new System.Drawing.Point(200, 7);
+            this.isPaged.Name = "isPaged";
+            this.isPaged.Size = new System.Drawing.Size(68, 17);
+            this.isPaged.TabIndex = 8;
+            this.isPaged.Text = "Is Paged";
+            this.isPaged.UseVisualStyleBackColor = true;
             // 
             // pageNo
             // 
@@ -390,17 +404,14 @@
             this.label1.TabIndex = 0;
             this.label1.Text = "Page Size";
             // 
-            // isPaged
+            // noRows
             // 
-            this.isPaged.AutoSize = true;
-            this.isPaged.Checked = true;
-            this.isPaged.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.isPaged.Location = new System.Drawing.Point(200, 7);
-            this.isPaged.Name = "isPaged";
-            this.isPaged.Size = new System.Drawing.Size(68, 17);
-            this.isPaged.TabIndex = 8;
-            this.isPaged.Text = "Is Paged";
-            this.isPaged.UseVisualStyleBackColor = true;
+            this.noRows.AutoSize = true;
+            this.noRows.Location = new System.Drawing.Point(555, 10);
+            this.noRows.Name = "noRows";
+            this.noRows.Size = new System.Drawing.Size(35, 13);
+            this.noRows.TabIndex = 9;
+            this.noRows.Text = "label5";
             // 
             // MainForm
             // 
@@ -472,6 +483,7 @@
         private System.Windows.Forms.TextBox pageNo;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.CheckBox isPaged;
+        private System.Windows.Forms.Label noRows;
     }
 }
 

@@ -2,10 +2,17 @@
 using System.Data;
 using System.Data.SqlClient;
 
-namespace SelectBuilder.Designer
+namespace SelectBuilder
 {
-    class DataSource : IDataSource
+    public class DataSource : IDataSource
     {
+        public string ConnectionStringName { get; set; }
+
+        public DataSource(string connectionStringName)
+        {
+            ConnectionStringName = connectionStringName;
+        }
+
         public DataSet GetDefinitions()
         {
             DataSet dataSet = new DataSet();
@@ -49,7 +56,7 @@ left join	(
 			join	sys.columns c on fkc.parent_column_id = c.column_id and fkc.parent_object_id = c.object_id
 			join	sys.columns cref on fkc.referenced_column_id = cref.column_id and fkc.referenced_object_id = cref.object_id) fk on c.object_id = fk.object_id and c.name = fk.name";
 
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString))
+            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings[ConnectionStringName].ConnectionString))
             {
                 connection.Open();
 

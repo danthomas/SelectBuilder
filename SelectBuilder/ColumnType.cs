@@ -5,10 +5,10 @@ namespace SelectBuilder
     [Flags]
     public enum ColumnType
     {
-        None,
-        Select = 1,
-        Where = 2,
-        OrderBy = 4,
-        All = Select | Where | OrderBy
+        Identifier = 1,
+        Select = 2,
+        Where = 4,
+        OrderBy = 8,
+        SelectWhereOrderBy = Select | Where | OrderBy
     }
 }

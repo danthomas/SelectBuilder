@@ -21,42 +21,103 @@ namespace SelectBuilder.Designer
             _whereColumn = whereColumn;
             InitializeComponent();
 
-            foreach (SelectColumn selectColumn in _selectStatement.SelectColumns.Where(item => (item.ColumnType & ColumnType.Where) == ColumnType.Where))
-            {
-                columns.Items.Add(selectColumn.Alias);
-            }
+            columns.ValueMember = "Alias";
+            columns.DisplayMember = "Alias";
 
-            foreach (string @operator in Enum.GetNames(typeof(Operators)))
-            {
-                operators.Items.Add(@operator);
-            }
+            columns.DataSource = _selectStatement.SelectColumns.Where(item => (item.ColumnType & ColumnType.Where) == ColumnType.Where).ToList();
 
             if (whereColumn != null)
             {
                 columns.Enabled = false;
-                columns.SelectedItem = whereColumn.ColumnDef.Name;
-                operators.SelectedItem = whereColumn.Operator.ToString();
-                value1.Text = whereColumn.Value1;
-                value2.Text = whereColumn.Value2;
+                columns.SelectedValue = _selectStatement.SelectColumns.Single(item => item.Alias == whereColumn.ColumnDef.Name);
+                operators.SelectedItem = whereColumn.Operator;
+
+                SelectColumn selectColumn = (SelectColumn) columns.SelectedItem;
+
+                if (selectColumn != null)
+                {
+                    if (selectColumn.OptionsSelectStatement != null)
+                    {
+                        options.SelectedValue = whereColumn.Value1;
+                    }
+                    else
+                    {
+                        value1.Text = whereColumn.Value1;
+                        value2.Text = whereColumn.Value2;
+                    }
+                }
             }
         }
 
         private void ok_Click(object sender, EventArgs e)
         {
+            SelectColumn selectColumn = (SelectColumn)columns.SelectedItem;
+
+            string v1 = selectColumn.OptionsSelectStatement != null
+                ? options.SelectedValue.ToString()
+                : value1.Text;
+
+            string v2 = value2.Text;
+
             if (_whereColumn == null)
             {
-                SelectColumn selectColumn = _selectStatement.SelectColumns.Single(item => item.Alias == columns.SelectedItem.ToString());
-                
-                _selectStatement.Where(selectColumn, (Operators)Enum.Parse(typeof(Operators), operators.SelectedItem.ToString()), value1.Text, value2.Text);
+                _selectStatement.Where(selectColumn, (Operator)operators.SelectedItem, v1, v2);
             }
             else
             {
-                _whereColumn.Operator = (Operators)Enum.Parse(typeof(Operators), operators.SelectedItem.ToString());
-                _whereColumn.Value1 = value1.Text;
-                _whereColumn.Value2 = value2.Text;
+                _whereColumn.Operator = (Operator)operators.SelectedItem;
+                _whereColumn.Value1 = v1;
+                _whereColumn.Value2 = v2;
             }
 
             Close();
+        }
+
+        private void operators_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void columns_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            SelectColumn selectColumn = (SelectColumn)columns.SelectedItem;
+
+            if (selectColumn != null)
+            {
+                if (selectColumn.OptionsSelectStatement != null)
+                {
+                    value1.Visible = false;
+                    options.Visible = true;
+                    value2.Enabled = false;
+
+                    operators.DataSource = new[] {Operator.IsEqualTo};
+                    operators.SelectedItem = Operator.IsEqualTo;
+
+                    options.ValueMember = "Id";
+                    options.DisplayMember = "Text";
+
+                    DataTable dataTable = selectColumn.OptionsSelectStatement.Execute().Tables[0];
+
+                    options.DataSource = dataTable.Rows.Cast<DataRow>().Select(item => new ComboBoxItem
+                    {
+                        Id = item[0].ToString(),
+                        Text = item.ItemArray.Skip(1).Select(item2 => item2.ToString()).Aggregate((a, b) => a + " - " + b)
+                    }).ToList();
+                }
+                else
+                {
+                    operators.DataSource = new List<object>(Enum.GetValues(typeof (Operator)).Cast<object>());
+                    value1.Visible = true;
+                    options.Visible = false;
+                    value2.Enabled = false;
+                }
+            }
+        }
+
+        class ComboBoxItem
+        {
+            public string Id { get; set; }
+            public string Text { get; set; }
         }
     }
 }

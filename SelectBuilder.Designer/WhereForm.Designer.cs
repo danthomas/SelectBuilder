@@ -38,6 +38,7 @@
             this.value2 = new System.Windows.Forms.TextBox();
             this.ok = new System.Windows.Forms.Button();
             this.cancel = new System.Windows.Forms.Button();
+            this.options = new System.Windows.Forms.ComboBox();
             this.SuspendLayout();
             // 
             // label1
@@ -56,6 +57,7 @@
             this.columns.Name = "columns";
             this.columns.Size = new System.Drawing.Size(230, 21);
             this.columns.TabIndex = 1;
+            this.columns.SelectedIndexChanged += new System.EventHandler(this.columns_SelectedIndexChanged);
             // 
             // label2
             // 
@@ -73,6 +75,7 @@
             this.operators.Name = "operators";
             this.operators.Size = new System.Drawing.Size(230, 21);
             this.operators.TabIndex = 3;
+            this.operators.SelectedIndexChanged += new System.EventHandler(this.operators_SelectedIndexChanged);
             // 
             // label3
             // 
@@ -126,6 +129,15 @@
             this.cancel.Text = "Cancel";
             this.cancel.UseVisualStyleBackColor = true;
             // 
+            // options
+            // 
+            this.options.FormattingEnabled = true;
+            this.options.Location = new System.Drawing.Point(130, 66);
+            this.options.Name = "options";
+            this.options.Size = new System.Drawing.Size(230, 21);
+            this.options.TabIndex = 10;
+            this.options.Visible = false;
+            // 
             // WhereForm
             // 
             this.AcceptButton = this.ok;
@@ -133,6 +145,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.cancel;
             this.ClientSize = new System.Drawing.Size(370, 154);
+            this.Controls.Add(this.options);
             this.Controls.Add(this.cancel);
             this.Controls.Add(this.ok);
             this.Controls.Add(this.value2);
@@ -168,5 +181,6 @@
         private System.Windows.Forms.TextBox value2;
         private System.Windows.Forms.Button ok;
         private System.Windows.Forms.Button cancel;
+        private System.Windows.Forms.ComboBox options;
     }
 }
